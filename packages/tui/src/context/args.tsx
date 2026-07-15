@@ -6,6 +6,7 @@ export interface Args {
   prompt?: string
   continue?: boolean
   sessionPicker?: boolean
+  startupUpdateCheck?: Promise<boolean>
   sessionID?: string
   fork?: boolean
   auto?: boolean

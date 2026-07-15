@@ -498,9 +498,14 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
     })
   })
 
+  const [sessionPickerReady, setSessionPickerReady] = createSignal(args.startupUpdateCheck === undefined)
+  void args.startupUpdateCheck?.then((updateAvailable) => {
+    if (!updateAvailable) setSessionPickerReady(true)
+  })
+
   let openedSessionPicker = false
   createEffect(() => {
-    if (openedSessionPicker || sync.status === "loading" || !args.sessionPicker) return
+    if (openedSessionPicker || sync.status === "loading" || !args.sessionPicker || !sessionPickerReady()) return
     openedSessionPicker = true
     dialog.replace(() => <DialogSessionList />)
   })
@@ -1040,7 +1045,10 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
     const version = evt.properties.version
 
     const skipped = kv.get("skipped_version")
-    if (skipped && !isVersionGreater(version, skipped)) return
+    if (skipped && !isVersionGreater(version, skipped)) {
+      setSessionPickerReady(true)
+      return
+    }
 
     const choice = await DialogConfirm.show(
       dialog,
@@ -1051,10 +1059,14 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
 
     if (choice === false) {
       kv.set("skipped_version", version)
+      setSessionPickerReady(true)
       return
     }
 
-    if (choice !== true) return
+    if (choice !== true) {
+      setSessionPickerReady(true)
+      return
+    }
 
     toast.show({
       variant: "info",
@@ -1071,6 +1083,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
         message: "Update failed",
         duration: 10000,
       })
+      setSessionPickerReady(true)
       return
     }
 

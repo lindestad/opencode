@@ -4,8 +4,10 @@ import { createTestRenderer } from "@opentui/core/testing"
 import { Effect } from "effect"
 import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
 import { Global } from "@opencode-ai/core/global"
+import path from "node:path"
 import { createTuiResolvedConfig } from "./fixture/tui-runtime"
 import { createEventSource, createFetch, directory, json } from "./fixture/tui-sdk"
+import { tmpdir } from "./fixture/fixture"
 
 test("SIGHUP clears title and disposes scoped resources once", async () => {
   const setup = await createTestRenderer({ width: 80, height: 24, useThread: false })
@@ -60,7 +62,9 @@ test("SIGHUP clears title and disposes scoped resources once", async () => {
   }
 })
 
-test("session picker opens without auto-continuing", async () => {
+test("update prompt opens before the session picker", async () => {
+  await using tmp = await tmpdir()
+  await Bun.write(path.join(tmp.path, "kv.json"), "{}")
   const setup = await createTestRenderer({ width: 80, height: 24, useThread: false })
   const core = await import("@opentui/core")
   mock.module("@opentui/core", () => ({ ...core, createCliRenderer: async () => setup.renderer }))
@@ -89,6 +93,10 @@ test("session picker opens without auto-continuing", async () => {
   const ready = new Promise<void>((resolve) => {
     started = resolve
   })
+  let finishUpdateCheck!: (updateAvailable: boolean) => void
+  const startupUpdateCheck = new Promise<boolean>((resolve) => {
+    finishUpdateCheck = resolve
+  })
 
   try {
     const { run } = await import("../src/app")
@@ -99,7 +107,7 @@ test("session picker opens without auto-continuing", async () => {
         config: createTuiResolvedConfig({ plugin_enabled: {} }),
         fetch: calls.fetch,
         events: events.source,
-        args: { sessionPicker: true },
+        args: { sessionPicker: true, startupUpdateCheck },
         pluginHost: {
           async start(input) {
             api = input.api
@@ -107,15 +115,37 @@ test("session picker opens without auto-continuing", async () => {
           },
           async dispose() {},
         },
-      }).pipe(Effect.provide(AppNodeBuilder.build(Global.node))),
+      }).pipe(
+        Effect.provide(AppNodeBuilder.build(Global.node, [[Global.node, Global.layerWith({ state: tmp.path })]])),
+      ),
     )
 
     await ready
     await setup.renderOnce()
     await setup.renderOnce()
     expect(api?.route.current.name).toBe("home")
+    expect(setup.captureCharFrame()).not.toContain("Sessions")
+
+    events.emit({
+      directory: "global",
+      payload: {
+        id: "evt_update",
+        type: "installation.update-available",
+        properties: { version: "99.0.0" },
+      },
+    })
+    finishUpdateCheck(true)
+    await setup.renderOnce()
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).toContain("Update Available")
+
+    setup.mockInput.pressArrow("left")
+    setup.mockInput.pressEnter()
+    await setup.renderOnce()
+    await setup.renderOnce()
     expect(setup.captureCharFrame()).toContain("Sessions")
     expect(setup.captureCharFrame()).toContain("Pick me")
+
     api?.keymap.dispatchCommand("app.exit")
     await task
   } finally {

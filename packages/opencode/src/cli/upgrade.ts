@@ -7,10 +7,10 @@ import { GlobalBus } from "@/bus/global"
 
 export async function upgrade() {
   const config = await AppRuntime.runPromise(Config.Service.use((cfg) => cfg.getGlobal()))
-  if (config.autoupdate === false || Flag.OPENCODE_DISABLE_AUTOUPDATE) return
+  if (config.autoupdate === false || Flag.OPENCODE_DISABLE_AUTOUPDATE) return false
   const method = await Installation.method()
   const latest = await Installation.latest(method).catch(() => {})
-  if (!latest) return
+  if (!latest) return false
 
   if (Flag.OPENCODE_ALWAYS_NOTIFY_UPDATE) {
     GlobalBus.emit("event", {
@@ -20,10 +20,10 @@ export async function upgrade() {
         properties: { version: latest },
       },
     })
-    return
+    return true
   }
 
-  if (InstallationVersion === latest) return
+  if (InstallationVersion === latest) return false
 
   const kind = Installation.getReleaseType(InstallationVersion, latest)
 
@@ -35,10 +35,10 @@ export async function upgrade() {
         properties: { version: latest },
       },
     })
-    return
+    return true
   }
 
-  if (method === "unknown") return
+  if (method === "unknown") return false
   await Installation.upgrade(method, latest)
     .then(() =>
       GlobalBus.emit("event", {
@@ -50,4 +50,5 @@ export async function upgrade() {
       }),
     )
     .catch(() => {})
+  return false
 }

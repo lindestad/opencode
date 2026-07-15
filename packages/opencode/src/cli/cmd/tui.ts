@@ -277,9 +277,11 @@ export const TuiThreadCommand = cmd({
         return
       }
 
-      setTimeout(() => {
-        client.call("checkUpgrade", { directory: cwd }).catch(() => {})
-      }, 1000).unref?.()
+      const startupUpdateCheck = new Promise<boolean>((resolve) => {
+        setTimeout(() => {
+          client.call("checkUpgrade", { directory: cwd }).then(resolve, () => resolve(false))
+        }, 1000).unref?.()
+      })
 
       try {
         const { Effect } = await import("effect")
@@ -302,6 +304,7 @@ export const TuiThreadCommand = cmd({
             args: {
               continue: args.continue,
               sessionPicker,
+              startupUpdateCheck,
               sessionID,
               agent: args.agent,
               model: args.model,
