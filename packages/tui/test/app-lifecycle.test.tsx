@@ -94,9 +94,10 @@ test("update prompt opens before the session picker", async () => {
     started = resolve
   })
   let finishUpdateCheck!: (updateAvailable: boolean) => void
-  const startupUpdateCheck = new Promise<boolean>((resolve) => {
-    finishUpdateCheck = resolve
-  })
+  const startupUpdateCheck = () =>
+    new Promise<boolean>((resolve) => {
+      finishUpdateCheck = resolve
+    })
 
   try {
     const { run } = await import("../src/app")

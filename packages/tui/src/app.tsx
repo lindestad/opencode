@@ -499,8 +499,10 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
   })
 
   const [sessionPickerReady, setSessionPickerReady] = createSignal(args.startupUpdateCheck === undefined)
-  void args.startupUpdateCheck?.then((updateAvailable) => {
-    if (!updateAvailable) setSessionPickerReady(true)
+  onMount(() => {
+    void args.startupUpdateCheck?.().then((updateAvailable) => {
+      if (!updateAvailable) setSessionPickerReady(true)
+    })
   })
 
   let openedSessionPicker = false

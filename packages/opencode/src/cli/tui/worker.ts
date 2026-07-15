@@ -56,8 +56,7 @@ export const rpc = {
     server = await Server.listen(input)
     return { url: server.url.toString() }
   },
-  async checkUpgrade(input: { directory: string }) {
-    await InstanceRuntime.load({ directory: input.directory })
+  async checkUpgrade() {
     return await upgrade().catch(() => false)
   },
   async reload() {
