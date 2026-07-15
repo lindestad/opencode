@@ -498,6 +498,13 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
     })
   })
 
+  let openedSessionPicker = false
+  createEffect(() => {
+    if (openedSessionPicker || sync.status === "loading" || !args.sessionPicker) return
+    openedSessionPicker = true
+    dialog.replace(() => <DialogSessionList />)
+  })
+
   let continued = false
   createEffect(() => {
     // When using -c, session list is loaded in blocking phase, so we can navigate at "partial"

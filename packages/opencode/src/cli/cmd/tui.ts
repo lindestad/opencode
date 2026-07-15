@@ -91,7 +91,8 @@ export const TuiThreadCommand = cmd({
       .option("session", {
         alias: ["s"],
         type: "string",
-        describe: "session id to continue",
+        requiresArg: false,
+        describe: "session id to continue, or omit to choose a session",
       })
       .option("fork", {
         type: "boolean",
@@ -142,6 +143,9 @@ export const TuiThreadCommand = cmd({
         hidden: true,
       }),
   handler: async (args) => {
+    const sessionPicker = args.session === ""
+    const sessionID = args.session || undefined
+
     if (args.replay === true) {
       UI.error("--replay is not supported; replay is enabled by default")
       process.exitCode = 1
@@ -150,6 +154,12 @@ export const TuiThreadCommand = cmd({
     const noReplay = args.replay === false || args.noReplay === true
 
     if (args.mini) {
+      if (sessionPicker) {
+        UI.error("--session requires a session id with --mini")
+        process.exitCode = 1
+        return
+      }
+
       const network = ["--port", "--hostname", "--mdns", "--no-mdns", "--mdns-domain", "--cors"].find((option) =>
         process.argv.some((arg) => arg === option || arg.startsWith(option + "=")),
       )
@@ -163,7 +173,7 @@ export const TuiThreadCommand = cmd({
       await runMini({
         directory: resolveThreadDirectory(args.project),
         continue: args.continue,
-        session: args.session,
+        session: sessionID,
         fork: args.fork,
         model: args.model,
         agent: args.agent,
@@ -189,8 +199,13 @@ export const TuiThreadCommand = cmd({
     const unguard = win32InstallCtrlCGuard()
     try {
       const { TuiConfig } = await import("@/config/tui")
-      if (args.fork && !args.continue && !args.session) {
-        UI.error("--fork requires --continue or --session")
+      if (sessionPicker && args.continue) {
+        UI.error("--session without an id cannot be used with --continue")
+        process.exitCode = 1
+        return
+      }
+      if (args.fork && !args.continue && !sessionID) {
+        UI.error("--fork requires --continue or --session <id>")
         process.exitCode = 1
         return
       }
@@ -251,7 +266,7 @@ export const TuiThreadCommand = cmd({
       try {
         await validateSession({
           url: transport.url,
-          sessionID: args.session,
+          sessionID,
           directory: cwd,
           fetch: transport.fetch,
           headers,
@@ -286,7 +301,8 @@ export const TuiThreadCommand = cmd({
             events: transport.events,
             args: {
               continue: args.continue,
-              sessionID: args.session,
+              sessionPicker,
+              sessionID,
               agent: args.agent,
               model: args.model,
               prompt,
